@@ -7,7 +7,8 @@ from sqlalchemy import create_engine
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, f1_score, precision_score, make_scorer
+from sklearn.metrics import accuracy_score, recall_score, f1_score, precision_score, make_scorer
+
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
@@ -20,14 +21,14 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import GridSearchCV
 from sklearn import svm
 import pickle
-from sklearn.externals import joblib 
+import joblib
 import xgboost as xgb
 
 nltk.download('stopwords') # download for stopwords
 nltk.download('wordnet') # download for lemmatization
 nltk.download('punkt')  # download punkt
 nltk.download('averaged_perceptron_tagger')
-    
+
 
 def avg_f1(y_test, y_pred):
     report = pd.DataFrame(columns=['label','f1'])
@@ -41,7 +42,7 @@ def load_data(database_filepath):
     df = pd.read_sql_table('Data',engine)
     X = df['message']
     y = df.loc[:,'related':'direct_report']
-    
+
     return X, y
 
 def tokenize(text):
@@ -55,10 +56,24 @@ def tokenize(text):
     return words
 
 def build_model():
-    model = Pipeline([
+    pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
-        ('clf', MultiOutputClassifier(xgb.XGBClassifier(max_depth=8, min_child_weight = 1, random_state=42, n_jobs=-1)))])
+        ('clf', MultiOutputClassifier(xgb.XGBClassifier(max_depth=8,
+         min_child_weight = 1,
+          random_state=42, n_jobs=-1
+          )))])
+    parameters = {
+    #'vect__ngram_range': ((1, 1), (1, 2)),
+    #'vect__max_df': (0.75, 1.0),
+    #'vect__max_features': (None, 5000, 10000),
+    #'tfidf__use_idf': (True, False),
+    'clf__estimator__max_depth': [6, 8],
+    'clf__estimator__min_child_weight': [1, 2],
+    }
+    scorer = make_scorer(avg_f1, greater_is_better= True)
+    model = GridSearchCV(pipeline, param_grid=parameters, scoring=scorer)
+
     return model
 
 
@@ -85,13 +100,13 @@ def main():
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
         X, y = load_data(database_filepath)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-        
+
         print('Building model...')
         model = build_model()
-        
+
         print('Training model...')
         model.fit(X_train, y_train)
-        
+
         print('Evaluating model...')
         report = evaluate_model(model, X_test, y_test)
         print(report)
