@@ -34,10 +34,12 @@ def clean_data(df, categories):
     for column in categories_split:
         # set each value to be the last character of the string
         categories_split[column] = categories_split[column].apply(lambda x: x.partition('-')[-1])
-        # change the values from the column that is not binary to 1
-        categories_split[column] = categories_split[column].apply(lambda x: x if x in [0,1] else 1)
+
         # convert column from string to numeric
         categories_split[column] = categories_split[column].apply(lambda x: int(x))
+
+        # change the values from the column that is not binary to 1
+        categories_split[column] = categories_split[column].apply(lambda x: x if x in [0,1] else 1)
 
 
     # drop the original categories column from `df`
@@ -56,7 +58,7 @@ def clean_data(df, categories):
 
 def save_data(df, database_filename):
     engine = create_engine('sqlite:///'+database_filename)
-    df.to_sql('Data', engine, index=False,if_exists='replace')
+    df.to_sql('Data', engine, index=False, if_exists='replace')
 
 def main():
     if len(sys.argv) == 4:
